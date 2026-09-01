@@ -24,10 +24,14 @@ app.use(cookieParser());
 mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
-    console.log("db connected");
+    console.log("MongoDB connected:", mongoose.connection.name);
+
+    app.listen(1111, () => {
+      console.log("Server running on http://localhost:1111");
+    });
   })
   .catch((error) => {
-    console.log(error);
+    console.error("MongoDB connection error:", error);
   });
 
 const UserSchema = new mongoose.Schema({
@@ -66,7 +70,7 @@ const UserSchema = new mongoose.Schema({
   Joined: {
     type: String,
     default: () => {
-      const date = Date.now;
+      const date = new Date();
       return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
     },
   },
@@ -160,18 +164,17 @@ app.get("/", async (req, res) => {
     });
   }
 });
-
 app.post("/signup", async (req, res) => {
   const { Email, Password, Username } = req.body;
 
-  const hashedPassword = await bcrypt.hash(Password, 10);
-
   try {
-    if (!Email || !Password) {
+    if (!Email || !Password || !Username) {
       return res.status(400).json({
-        message: "both mail and password required",
+        message: "Username, email and password are required",
       });
     }
+
+    const hashedPassword = await bcrypt.hash(Password, 10);
 
     await User.create({
       Email,
@@ -186,14 +189,13 @@ app.post("/signup", async (req, res) => {
       message: "Signed up",
     });
   } catch (error) {
-    console.error(error);
+    console.error("Signup error:", error);
 
     return res.status(500).json({
       message: "Server Error",
     });
   }
 });
-
 app.post("/login", async (req, res) => {
   try {
     const { Email, Password } = req.body;
@@ -416,27 +418,48 @@ app.post("/uploadmain", memoryUpload.single("image"), async (req, res) => {
 app.get("/profile", async (req, res) => {
   try {
     const token = req.cookies.jwt;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "No JWT found",
+      });
+    }
+
     const payload = jwt.verify(token, "userIdKey");
 
     const user = await User.findById(payload.userId);
 
-    const UserPosts = await Posts.find({ UserId: payload.userId });
-
-    const result = [];
-
-    for (let i = 0; i < UserPosts.length; i++) {
-      const post = UserPosts[i].toObject();
-
-      post.isLiked = user.Liked.some(
-        (likedPostId) => likedPostId.toString() === post._id.toString(),
-      );
-
-      result.push(post);
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found",
+      });
     }
 
-    res.status(200).json({ user, UserPosts: result });
+    const userPosts = await Posts.find({
+      UserId: payload.userId,
+    });
+
+    const result = userPosts.map((post) => {
+      const postObject = post.toObject();
+
+      postObject.isLiked =
+        user.Liked?.some(
+          (likedPostId) => likedPostId.toString() === postObject._id.toString(),
+        ) ?? false;
+
+      return postObject;
+    });
+
+    return res.status(200).json({
+      user,
+      UserPosts: result,
+    });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+
+    return res.status(401).json({
+      message: "Invalid or expired JWT",
+    });
   }
 });
 
