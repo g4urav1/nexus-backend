@@ -53,12 +53,24 @@ const UserSchema = new mongoose.Schema({
   Bio: {
     type: String,
   },
-  Followers: {
+  FollowersCount: {
     type: Number,
   },
-  Following: {
+  FollowingCount: {
     type: Number,
   },
+  Followers:  [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+  Following: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
 
   Liked: [
     {
@@ -164,6 +176,33 @@ app.get("/", async (req, res) => {
     });
   }
 });
+
+app.get("/usernameAvailability", async (req, res) => {
+  try {
+    const { username } = req.query;
+
+    if (!username) {
+      return res.status(400).json({
+        message: "Username is required",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      Username: username,
+    });
+
+    return res.status(200).json({
+      isAvailable: !existingUser,
+    });
+  } catch (error) {
+    console.error("Username availability error:", error);
+
+    return res.status(500).json({
+      message: "Server Error",
+    });
+  }
+});
+
 app.post("/signup", async (req, res) => {
   const { Email, Password, Username } = req.body;
 
@@ -181,8 +220,8 @@ app.post("/signup", async (req, res) => {
       Username,
       Password: hashedPassword,
       Bio: " ",
-      Followers: 0,
-      Following: 0,
+      FollowersCount: 0,
+      FollowingCount: 0,
     });
 
     return res.status(200).json({
@@ -657,6 +696,28 @@ app.get("/getComments/:id", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json("server error");
+  }
+});
+
+app.get("/searchUsers", async (req, res) => {
+  try {
+    const { searchQuery } = req.query;
+
+    const people = await User.find({
+      Username: {
+        $regex: searchQuery,
+        $options: "i",
+      },
+    })
+      .select("-Password")
+      .limit(20);
+
+    res.status(200).json(people);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: "Something went wrong",
+    });
   }
 });
 
