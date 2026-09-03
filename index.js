@@ -25,10 +25,6 @@ mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
     console.log("MongoDB connected:", mongoose.connection.name);
-
-    app.listen(1111, () => {
-      console.log("Server running on http://localhost:1111");
-    });
   })
   .catch((error) => {
     console.error("MongoDB connection error:", error);
@@ -59,7 +55,8 @@ const UserSchema = new mongoose.Schema({
   FollowingCount: {
     type: Number,
   },
-  Followers:  [
+
+  Followers: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -222,6 +219,8 @@ app.post("/signup", async (req, res) => {
       Bio: " ",
       FollowersCount: 0,
       FollowingCount: 0,
+      Followers: [],
+      Following: [],
     });
 
     return res.status(200).json({
@@ -235,6 +234,7 @@ app.post("/signup", async (req, res) => {
     });
   }
 });
+
 app.post("/login", async (req, res) => {
   try {
     const { Email, Password } = req.body;
@@ -454,7 +454,7 @@ app.post("/uploadmain", memoryUpload.single("image"), async (req, res) => {
   }
 });
 
-app.get("/profile", async (req, res) => {
+app.get("/admin", async (req, res) => {
   try {
     const token = req.cookies.jwt;
 
@@ -466,16 +466,17 @@ app.get("/profile", async (req, res) => {
 
     const payload = jwt.verify(token, "userIdKey");
 
+  
     const user = await User.findById(payload.userId);
 
     if (!user) {
-      return res.status(401).json({
+      return res.status(404).json({
         message: "User not found",
       });
     }
 
     const userPosts = await Posts.find({
-      UserId: payload.userId,
+      UserId: user._id,
     });
 
     const result = userPosts.map((post) => {
@@ -483,7 +484,8 @@ app.get("/profile", async (req, res) => {
 
       postObject.isLiked =
         user.Liked?.some(
-          (likedPostId) => likedPostId.toString() === postObject._id.toString(),
+          (likedPostId) =>
+            likedPostId.toString() === postObject._id.toString()
         ) ?? false;
 
       return postObject;
@@ -491,6 +493,68 @@ app.get("/profile", async (req, res) => {
 
     return res.status(200).json({
       user,
+      UserPosts: result,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(401).json({
+      message: "Invalid or expired JWT",
+    });
+  }
+});
+
+
+
+app.get("/user/:Username", async (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "No JWT found",
+      });
+    }
+
+    const payload = jwt.verify(token, "userIdKey");
+
+
+    const currentUser = await User.findById(payload.userId);
+
+    if (!currentUser) {
+      return res.status(401).json({
+        message: "Authenticated user not found",
+      });
+    }
+
+    const profileUser = await User.findOne({
+      Username: req.params.Username,
+    });
+
+    if (!profileUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const userPosts = await Posts.find({
+      UserId: profileUser._id,
+    });
+
+    const result = userPosts.map((post) => {
+      const postObject = post.toObject();
+
+      postObject.isLiked =
+        currentUser.Liked?.some(
+          (likedPostId) =>
+            likedPostId.toString() === postObject._id.toString()
+        ) ?? false;
+
+      return postObject;
+    });
+
+    return res.status(200).json({
+      user: profileUser,
       UserPosts: result,
     });
   } catch (error) {
