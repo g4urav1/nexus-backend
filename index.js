@@ -56,6 +56,25 @@ const UserSchema = new mongoose.Schema({
     type: Number,
   },
 
+  Notifications: [
+    {
+      type: Object,
+      message: String,
+      sentAt: {
+        type: Date,
+        default: Date.now,
+      },
+      by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      postId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Posts",
+      },
+    },
+  ],
+
   Followers: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -255,7 +274,7 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const MatchedPassword = await bcrypt.compare(Password, user.Password);
+    const MatchedPassword = bcrypt.compare(Password, user.Password);
 
     if (!MatchedPassword) {
       return res.status(401).json({
@@ -466,7 +485,6 @@ app.get("/admin", async (req, res) => {
 
     const payload = jwt.verify(token, "userIdKey");
 
-  
     const user = await User.findById(payload.userId);
 
     if (!user) {
@@ -484,8 +502,7 @@ app.get("/admin", async (req, res) => {
 
       postObject.isLiked =
         user.Liked?.some(
-          (likedPostId) =>
-            likedPostId.toString() === postObject._id.toString()
+          (likedPostId) => likedPostId.toString() === postObject._id.toString(),
         ) ?? false;
 
       return postObject;
@@ -504,8 +521,6 @@ app.get("/admin", async (req, res) => {
   }
 });
 
-
-
 app.get("/user/:Username", async (req, res) => {
   try {
     const token = req.cookies.jwt;
@@ -517,7 +532,6 @@ app.get("/user/:Username", async (req, res) => {
     }
 
     const payload = jwt.verify(token, "userIdKey");
-
 
     const currentUser = await User.findById(payload.userId);
 
@@ -546,8 +560,7 @@ app.get("/user/:Username", async (req, res) => {
 
       postObject.isLiked =
         currentUser.Liked?.some(
-          (likedPostId) =>
-            likedPostId.toString() === postObject._id.toString()
+          (likedPostId) => likedPostId.toString() === postObject._id.toString(),
         ) ?? false;
 
       return postObject;
@@ -628,19 +641,36 @@ app.post("/likes", async (req, res) => {
       });
     }
 
+    const owner = await User.findById(post.UserId);
+
+    if (!owner) {
+      return res.status(404).json({
+        message: "Post owner not found",
+      });
+    }
+
     const alreadyLiked = user.Liked.some(
-      (likedPostId) => likedPostId.toString() === id,
+      (likedPostId) => likedPostId.toString() === id
     );
 
     if (alreadyLiked) {
       post.Likes = Math.max(0, post.Likes - 1);
 
       user.Liked = user.Liked.filter(
-        (likedPostId) => likedPostId.toString() !== id,
+        (likedPostId) => likedPostId.toString() !== id
       );
 
       await post.save();
       await user.save();
+
+      await User.findByIdAndUpdate(owner._id, {
+        $pull: {
+          Notifications: {
+            type: "like",
+            postId: post._id,
+          },
+        },
+      });
 
       return res.status(200).json({
         message: "Post disliked",
@@ -655,13 +685,25 @@ app.post("/likes", async (req, res) => {
     await post.save();
     await user.save();
 
+    await User.findByIdAndUpdate(owner._id, {
+      $push: {
+        Notifications: {
+          type: "like",
+          message: "liked your post.",
+          sentAt: new Date(),
+          by: user._id,
+          postId: post._id,
+        },
+      },
+    });
+
     return res.status(200).json({
       message: "Post liked",
       isLiked: true,
       likes: post.Likes,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
 
     return res.status(500).json({
       message: "Something went wrong",
@@ -782,6 +824,50 @@ app.get("/searchUsers", async (req, res) => {
     res.status(500).json({
       message: "Something went wrong",
     });
+  }
+});
+
+app.get("/notifications", async (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Unauthorised Session",
+      });
+    }
+
+    const payload = jwt.verify(token, "userIdKey");
+
+    const user = await User.findById(payload.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const result = [];
+
+    for (let i = 0; i < user.Notifications.length; i++) {
+      const by = await User.findById(user.Notifications[i].by);
+      const post = await Posts.findById(user.Notifications[i].postId);
+      result.push({
+        id: user.Notifications[i]._id,
+        NotificationBy: by.Username,
+        NotificationMessage: user.Notifications[i].message,
+        sentAt: user.Notifications[i].sentAt,
+        byPfp: by.Pfp,
+        postUrl: post ? post.Url : null,
+      });
+    }
+
+    console.log(result);
+
+    return res.status(200).json(result.reverse());
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("something went wrong");
   }
 });
 
