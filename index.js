@@ -650,14 +650,14 @@ app.post("/likes", async (req, res) => {
     }
 
     const alreadyLiked = user.Liked.some(
-      (likedPostId) => likedPostId.toString() === id
+      (likedPostId) => likedPostId.toString() === id,
     );
 
     if (alreadyLiked) {
       post.Likes = Math.max(0, post.Likes - 1);
 
       user.Liked = user.Liked.filter(
-        (likedPostId) => likedPostId.toString() !== id
+        (likedPostId) => likedPostId.toString() !== id,
       );
 
       await post.save();
@@ -734,10 +734,17 @@ app.post("/addComments", async (req, res) => {
 
     const user = await User.findById(payload.userId);
     const post = await Posts.findById(id);
+    const owner = await User.findById(post.UserId);
 
     if (!user || !post) {
       return res.status(404).json({
         message: "User or post not found",
+      });
+    }
+
+    if (!owner) {
+      return res.status(404).json({
+        message: "Post owner not found",
       });
     }
 
@@ -750,6 +757,18 @@ app.post("/addComments", async (req, res) => {
     post.CommentCount = post.Comments.length;
 
     await post.save();
+
+    await User.findByIdAndUpdate(owner._id, {
+      $push: {
+        Notifications: {
+          type: "comment",
+          message: `commented "${CommentTxt}" on your post.`,
+          sentAt: new Date(),
+          by: user._id,
+          postId: post._id,
+        },
+      },
+    });
 
     const newComment = post.Comments[post.Comments.length - 1];
 
@@ -798,7 +817,7 @@ app.get("/getComments/:id", async (req, res) => {
         CommenterPfp: commenter.Pfp,
       });
     }
-    return res.status(200).json(result);
+    return res.status(200).json(result.reverse());
   } catch (error) {
     console.log(error);
     res.status(500).json("server error");
@@ -862,12 +881,58 @@ app.get("/notifications", async (req, res) => {
       });
     }
 
-    console.log(result);
-
     return res.status(200).json(result.reverse());
   } catch (error) {
     console.log(error);
     res.status(500).json("something went wrong");
+  }
+});
+
+app.post("/follow", async (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+    const payload = jwt.verify(token, "userIdKey");
+
+    const admin = await User.findById(payload.userId);
+
+    const id = req.body.userId;
+
+    const user = await User.findById(id);
+
+    const alreadyFollowed = admin.Followers.some(
+      (followedUserId) => followedUserId.toString() === id,
+    );
+
+    if (alreadyFollowed) {
+      ((user.FollowersCount = Math.max(0, user.FollowersCount - 1)),
+        (admin.FollowingCount = Math.max(0, admin.FollowingCount - 1)));
+
+      user.Followers = user.Followers.filter(
+        (followedUserId) => followedUserId.toString() !== id,
+      );
+
+      await user.save();
+      await admin.save();
+
+      await User.findByIdAndUpdate(user._id,{
+        $pull:{
+          Notifications:{
+            type:"Follow",
+            adminId: admin._id
+          },
+        },
+      });
+
+
+
+      
+    }
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
   }
 });
 
