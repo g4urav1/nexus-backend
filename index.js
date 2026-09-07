@@ -914,18 +914,14 @@ app.post("/follow", async (req, res) => {
       await user.save();
       await admin.save();
 
-      await User.findByIdAndUpdate(user._id,{
-        $pull:{
-          Notifications:{
-            type:"Follow",
-            adminId: admin._id
+      await User.findByIdAndUpdate(user._id, {
+        $pull: {
+          Notifications: {
+            type: "Follow",
+            adminId: admin._id,
           },
         },
       });
-
-
-
-      
     }
   } catch (error) {
     console.error(error);
