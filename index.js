@@ -562,7 +562,7 @@ app.get("/user/:Username", async (req, res) => {
           followingUserId.toString() === profileUser._id.toString(),
       ) ?? false;
 
-    const result = userPosts.map((post) => {
+    const postresult = userPosts.map((post) => {
       const postObject = post.toObject();
 
       postObject.isLiked =
@@ -574,8 +574,12 @@ app.get("/user/:Username", async (req, res) => {
     });
 
     return res.status(200).json({
-      user: { ...profileUser.toObject(), Password: undefined },
-      UserPosts: result,
+      user: {
+        ...profileUser.toObject(),
+        Password: undefined,
+      },
+      isFollowing,
+      UserPosts: postresult,
     });
   } catch (error) {
     console.error(error);
@@ -833,6 +837,24 @@ app.get("/getComments/:id", async (req, res) => {
 
 app.get("/searchUsers", async (req, res) => {
   try {
+    const token = req.cookies.jwt;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "No JWT found",
+      });
+    }
+
+    const payload = jwt.verify(token, "userIdKey");
+
+    const admin = await User.findById(payload.userId);
+
+    if (!admin) {
+      return res.status(401).json({
+        message: "Authenticated user not found",
+      });
+    }
+
     const { searchQuery } = req.query;
 
     const people = await User.find({
@@ -844,10 +866,15 @@ app.get("/searchUsers", async (req, res) => {
       .select("-Password")
       .limit(20);
 
-    res.status(200).json(people);
+  
+
+    
+    return res.status(200).json(result.reverse());
+
   } catch (err) {
-    console.log(err);
-    res.status(500).json({
+    console.error("Search users error:", err);
+
+    return res.status(500).json({
       message: "Something went wrong",
     });
   }
@@ -924,11 +951,13 @@ app.post("/follow", async (req, res) => {
     }
 
     const alreadyFollowed = admin.Following.some(
-      (followingUserId) => followingUserId.toString() === profileUser._id.toString(),
+      (followingUserId) =>
+        followingUserId.toString() === profileUser._id.toString(),
     );
     if (alreadyFollowed) {
       admin.Following = admin.Following.filter(
-        (followingUserId) => followingUserId.toString() !== profileUser._id.toString(),
+        (followingUserId) =>
+          followingUserId.toString() !== profileUser._id.toString(),
       );
 
       admin.FollowingCount = Math.max(0, admin.FollowingCount - 1);
