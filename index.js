@@ -51,6 +51,7 @@ const UserSchema = new mongoose.Schema({
   },
   FollowersCount: {
     type: Number,
+    default: 0,
   },
   FollowingCount: {
     type: Number,
@@ -264,17 +265,17 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
+    const admin = await User.findOne({
       Email: Email,
     });
 
-    if (!user) {
+    if (!admin) {
       return res.status(404).json({
         message: "No account found",
       });
     }
 
-    const MatchedPassword = bcrypt.compare(Password, user.Password);
+    const MatchedPassword = bcrypt.compare(Password, admin.Password);
 
     if (!MatchedPassword) {
       return res.status(401).json({
@@ -282,7 +283,7 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const token = await jwt.sign({ userId: user._id }, "userIdKey", {
+    const token = await jwt.sign({ userId: admin._id }, "userIdKey", {
       expiresIn: "90d",
     });
     res.cookie("jwt", token, {
@@ -293,7 +294,7 @@ app.post("/login", async (req, res) => {
     });
     res.status(200).json({
       message: "Logged in",
-      user: user,
+      admin: { ...admin.toObject(), Password: undefined },
     });
   } catch (error) {
     console.error(error);
@@ -365,7 +366,7 @@ app.post("/edit_profile", memoryUpload.single("Pfp"), async (req, res) => {
 
     const { Username, Bio } = req.body;
 
-    const user = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
 
     if (!req.file) {
       return res.status(400).json({
@@ -396,18 +397,18 @@ app.post("/edit_profile", memoryUpload.single("Pfp"), async (req, res) => {
           console.log(result);
 
           if (result.secure_url) {
-            user.Pfp = result.secure_url;
+            admin.Pfp = result.secure_url;
           }
 
           if (Username !== undefined && Username.trim() !== "") {
-            user.Username = Username.trim();
+            admin.Username = Username.trim();
           }
 
           if (Bio !== undefined && Bio.trim() !== "") {
-            user.Bio = Bio.trim();
+            admin.Bio = Bio.trim();
           }
 
-          await user.save();
+          await admin.save();
 
           return res.status(200).json({
             message: "Profile updated",
@@ -485,23 +486,23 @@ app.get("/admin", async (req, res) => {
 
     const payload = jwt.verify(token, "userIdKey");
 
-    const user = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
 
-    if (!user) {
+    if (!admin) {
       return res.status(404).json({
         message: "User not found",
       });
     }
 
     const userPosts = await Posts.find({
-      UserId: user._id,
+      UserId: admin._id,
     });
 
     const result = userPosts.map((post) => {
       const postObject = post.toObject();
 
       postObject.isLiked =
-        user.Liked?.some(
+        admin.Liked?.some(
           (likedPostId) => likedPostId.toString() === postObject._id.toString(),
         ) ?? false;
 
@@ -509,7 +510,7 @@ app.get("/admin", async (req, res) => {
     });
 
     return res.status(200).json({
-      user,
+      admin: { ...admin.toObject(), Password: undefined },
       UserPosts: result,
     });
   } catch (error) {
@@ -533,9 +534,9 @@ app.get("/user/:Username", async (req, res) => {
 
     const payload = jwt.verify(token, "userIdKey");
 
-    const currentUser = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
 
-    if (!currentUser) {
+    if (!admin) {
       return res.status(401).json({
         message: "Authenticated user not found",
       });
@@ -555,11 +556,17 @@ app.get("/user/:Username", async (req, res) => {
       UserId: profileUser._id,
     });
 
+    const isFollowing =
+      admin.Following?.some(
+        (followingUserId) =>
+          followingUserId.toString() === profileUser._id.toString(),
+      ) ?? false;
+
     const result = userPosts.map((post) => {
       const postObject = post.toObject();
 
       postObject.isLiked =
-        currentUser.Liked?.some(
+        admin.Liked?.some(
           (likedPostId) => likedPostId.toString() === postObject._id.toString(),
         ) ?? false;
 
@@ -567,7 +574,7 @@ app.get("/user/:Username", async (req, res) => {
     });
 
     return res.status(200).json({
-      user: profileUser,
+      user: { ...profileUser.toObject(), Password: undefined },
       UserPosts: result,
     });
   } catch (error) {
@@ -601,7 +608,7 @@ app.get("/post/:id", async (req, res) => {
 
     const owner = await User.findById(post.UserId);
 
-    const user = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
 
     const result = post.toObject();
 
@@ -611,7 +618,7 @@ app.get("/post/:id", async (req, res) => {
       result.Name = owner.Name;
     }
 
-    result.isLiked = user.Liked.some(
+    result.isLiked = admin.Liked.some(
       (likedPostId) => likedPostId.toString() === post._id.toString(),
     );
 
@@ -632,10 +639,10 @@ app.post("/likes", async (req, res) => {
 
     const id = req.body.PostId;
 
-    const user = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
     const post = await Posts.findById(id);
 
-    if (!user || !post) {
+    if (!admin || !post) {
       return res.status(404).json({
         message: "User or post not found",
       });
@@ -649,19 +656,19 @@ app.post("/likes", async (req, res) => {
       });
     }
 
-    const alreadyLiked = user.Liked.some(
+    const alreadyLiked = admin.Liked.some(
       (likedPostId) => likedPostId.toString() === id,
     );
 
     if (alreadyLiked) {
       post.Likes = Math.max(0, post.Likes - 1);
 
-      user.Liked = user.Liked.filter(
+      admin.Liked = admin.Liked.filter(
         (likedPostId) => likedPostId.toString() !== id,
       );
 
       await post.save();
-      await user.save();
+      await admin.save();
 
       await User.findByIdAndUpdate(owner._id, {
         $pull: {
@@ -680,10 +687,10 @@ app.post("/likes", async (req, res) => {
     }
 
     post.Likes += 1;
-    user.Liked.push(id);
+    admin.Liked.push(id);
 
     await post.save();
-    await user.save();
+    await admin.save();
 
     await User.findByIdAndUpdate(owner._id, {
       $push: {
@@ -691,7 +698,7 @@ app.post("/likes", async (req, res) => {
           type: "like",
           message: "liked your post.",
           sentAt: new Date(),
-          by: user._id,
+          by: admin._id,
           postId: post._id,
         },
       },
@@ -732,11 +739,11 @@ app.post("/addComments", async (req, res) => {
       });
     }
 
-    const user = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
     const post = await Posts.findById(id);
     const owner = await User.findById(post.UserId);
 
-    if (!user || !post) {
+    if (!admin || !post) {
       return res.status(404).json({
         message: "User or post not found",
       });
@@ -764,7 +771,7 @@ app.post("/addComments", async (req, res) => {
           type: "comment",
           message: `commented "${CommentTxt}" on your post.`,
           sentAt: new Date(),
-          by: user._id,
+          by: admin._id,
           postId: post._id,
         },
       },
@@ -774,8 +781,8 @@ app.post("/addComments", async (req, res) => {
 
     return res.status(200).json({
       id: newComment._id,
-      Commenter: user.Username,
-      CommenterPfp: user.Pfp,
+      Commenter: admin.Username,
+      CommenterPfp: admin.Pfp,
       Comment: newComment.CommentText,
       CommentedAt: newComment.CommentedAt,
       CommentCount: post.Comments.length,
@@ -858,9 +865,9 @@ app.get("/notifications", async (req, res) => {
 
     const payload = jwt.verify(token, "userIdKey");
 
-    const user = await User.findById(payload.userId);
+    const admin = await User.findById(payload.userId);
 
-    if (!user) {
+    if (!admin) {
       return res.status(404).json({
         message: "User not found",
       });
@@ -868,14 +875,14 @@ app.get("/notifications", async (req, res) => {
 
     const result = [];
 
-    for (let i = 0; i < user.Notifications.length; i++) {
-      const by = await User.findById(user.Notifications[i].by);
-      const post = await Posts.findById(user.Notifications[i].postId);
+    for (let i = 0; i < admin.Notifications.length; i++) {
+      const by = await User.findById(admin.Notifications[i].by);
+      const post = await Posts.findById(admin.Notifications[i].postId);
       result.push({
-        id: user.Notifications[i]._id,
+        id: admin.Notifications[i]._id,
         NotificationBy: by.Username,
-        NotificationMessage: user.Notifications[i].message,
-        sentAt: user.Notifications[i].sentAt,
+        NotificationMessage: admin.Notifications[i].message,
+        sentAt: admin.Notifications[i].sentAt,
         byPfp: by.Pfp,
         postUrl: post ? post.Url : null,
       });
@@ -891,40 +898,99 @@ app.get("/notifications", async (req, res) => {
 app.post("/follow", async (req, res) => {
   try {
     const token = req.cookies.jwt;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Not authenticated",
+      });
+    }
+
     const payload = jwt.verify(token, "userIdKey");
 
     const admin = await User.findById(payload.userId);
+    const id = req.body.UserId;
+    const profileUser = await User.findById(id);
 
-    const id = req.body.userId;
+    if (!admin) {
+      return res.status(404).json({
+        message: "Logged-in user not found",
+      });
+    }
 
-    const user = await User.findById(id);
+    if (!profileUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
 
-    const alreadyFollowed = admin.Followers.some(
-      (followedUserId) => followedUserId.toString() === id,
+    const alreadyFollowed = admin.Following.some(
+      (followingUserId) => followingUserId.toString() === profileUser._id.toString(),
     );
-
     if (alreadyFollowed) {
-      ((user.FollowersCount = Math.max(0, user.FollowersCount - 1)),
-        (admin.FollowingCount = Math.max(0, admin.FollowingCount - 1)));
-
-      user.Followers = user.Followers.filter(
-        (followedUserId) => followedUserId.toString() !== id,
+      admin.Following = admin.Following.filter(
+        (followingUserId) => followingUserId.toString() !== profileUser._id.toString(),
       );
 
-      await user.save();
-      await admin.save();
+      admin.FollowingCount = Math.max(0, admin.FollowingCount - 1);
 
-      await User.findByIdAndUpdate(user._id, {
+      profileUser.Followers = profileUser.Followers.filter(
+        (followerId) => followerId.toString() !== admin._id.toString(),
+      );
+
+      profileUser.FollowersCount = Math.max(0, profileUser.FollowersCount - 1);
+
+      await admin.save();
+      await profileUser.save();
+
+      await User.findByIdAndUpdate(profileUser._id, {
         $pull: {
           Notifications: {
             type: "Follow",
-            adminId: admin._id,
+            by: admin._id,
           },
         },
       });
+
+      console.log("UNFOLLOWED");
+
+      return res.status(200).json({
+        message: "User UnFollowed",
+        isFollowing: false,
+        Followers: profileUser.Followers,
+        FollowersCount: profileUser.FollowersCount,
+      });
     }
+
+    admin.Following.push(profileUser._id);
+    admin.FollowingCount += 1;
+
+    profileUser.Followers.push(admin._id);
+    profileUser.FollowersCount += 1;
+
+    await admin.save();
+    await profileUser.save();
+
+    await User.findByIdAndUpdate(profileUser._id, {
+      $push: {
+        Notifications: {
+          type: "Follow",
+          message: "Followed You.",
+          sentAt: new Date(),
+          by: admin._id,
+        },
+      },
+    });
+
+    console.log("FOLLOWED");
+
+    return res.status(200).json({
+      message: "User Followed",
+      isFollowing: true,
+      Followers: profileUser.Followers,
+      FollowersCount: profileUser.FollowersCount,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("FOLLOW ERROR:", error);
 
     return res.status(500).json({
       message: "Something went wrong",
