@@ -866,11 +866,16 @@ app.get("/searchUsers", async (req, res) => {
       .select("-Password")
       .limit(20);
 
-  
+    const peopleObj = people.map((person) => person.toObject());
 
-    
-    return res.status(200).json(result.reverse());
+    const isFollowing = peopleObj.map((person) => ({
+      ...person,
+      isFollowing: admin.Following.some(
+        (followingId) => followingId.toString() === person._id.toString(),
+      ),
+    }));
 
+    return res.status(200).json(isFollowing);
   } catch (err) {
     console.error("Search users error:", err);
 
@@ -1020,6 +1025,48 @@ app.post("/follow", async (req, res) => {
     });
   } catch (error) {
     console.error("FOLLOW ERROR:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
+app.get("/getFollowers/:username", async (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+    const username = req.params.username;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Unauthorised Session",
+      });
+    }
+
+    jwt.verify(token, "userIdKey");
+
+    const user = await User.findOne({ Username: username })
+      .populate("Followers", "Username Pfp");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const result = user.Followers.map((follower) => ({
+      id: follower._id,
+      Follower: follower.Username,
+      FollowerPfp: follower.Pfp,
+    }));
+
+    return res.status(200).json({
+      result,
+    });
+  } catch (error) {
+    console.error(error);
+
+   
 
     return res.status(500).json({
       message: "Something went wrong",
