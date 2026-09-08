@@ -1043,10 +1043,14 @@ app.get("/getFollowers/:username", async (req, res) => {
       });
     }
 
-    jwt.verify(token, "userIdKey");
+    const payload = await jwt.verify(token, "userIdKey");
 
-    const user = await User.findOne({ Username: username })
-      .populate("Followers", "Username Pfp");
+    const admin = await User.findById(payload.userId);
+
+    const user = await User.findOne({ Username: username }).populate(
+      "Followers",
+      "Username Pfp",
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -1058,6 +1062,10 @@ app.get("/getFollowers/:username", async (req, res) => {
       id: follower._id,
       Follower: follower.Username,
       FollowerPfp: follower.Pfp,
+      isFollowing: admin.Following.some(
+        (followingUserId) =>
+          followingUserId.toString() === follower._id.toString(),
+      ),
     }));
 
     return res.status(200).json({
@@ -1066,13 +1074,103 @@ app.get("/getFollowers/:username", async (req, res) => {
   } catch (error) {
     console.error(error);
 
-   
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
+app.get("/getFollowing/:username", async (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+    const username = req.params.username;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Unauthorised Session",
+      });
+    }
+
+    const payload = await jwt.verify(token, "userIdKey");
+
+    const admin = await User.findById(payload.userId);
+
+    const user = await User.findOne({ Username: username }).populate(
+      "Following",
+      "Username Pfp isFollowing",
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const result = user.Following.map((following) => ({
+      id: following._id,
+      Following: following.Username,
+      FollowingPfp: following.Pfp,
+      isFollowing: admin.Following.some(
+        (followingUserId) =>
+          followingUserId.toString() === following._id.toString(),
+      ),
+    }));
+
+    console.log(result);
+
+    return res.status(200).json({
+      result,
+    });
+  } catch (error) {
+    console.error(error);
 
     return res.status(500).json({
       message: "Something went wrong",
     });
   }
 });
+
+app.get("/likedPosts/:username", async (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+    const username = req.params.username;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Unauthorised Session",
+      });
+    }
+
+    const payload = await jwt.verify(token, "userIdKey");
+
+    const admin = await User.findById(payload.userId)
+      .populate("Liked", "Url");
+
+    if (!admin) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const result = admin.Liked.map((likedPost) => ({
+      id: likedPost._id,
+      url: likedPost.Url,
+    }));
+
+    console.log(result);
+
+    return res.status(200).json({
+      result,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
 
 app.use((err, req, res, next) => {
   res.status(400).json({ message: err.message });
