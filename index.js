@@ -30,6 +30,14 @@ mongoose
     console.error("MongoDB connection error:", error);
   });
 
+const sender = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+});
+
 const UserSchema = new mongoose.Schema({
   Email: {
     type: String,
@@ -39,6 +47,9 @@ const UserSchema = new mongoose.Schema({
   },
   Username: {
     type: String,
+  },
+  Code: {
+    type: Number,
   },
   Pfp: {
     type: String,
@@ -347,6 +358,7 @@ import path from "path";
 // });
 
 import { v2 as cloudinary } from "cloudinary";
+import { type } from "os";
 
 cloudinary.config({
   api_key: process.env.API_KEY,
@@ -1143,8 +1155,7 @@ app.get("/likedPosts/:username", async (req, res) => {
 
     const payload = await jwt.verify(token, "userIdKey");
 
-    const admin = await User.findById(payload.userId)
-      .populate("Liked", "Url");
+    const admin = await User.findById(payload.userId).populate("Liked", "Url");
 
     if (!admin) {
       return res.status(404).json({
@@ -1156,8 +1167,6 @@ app.get("/likedPosts/:username", async (req, res) => {
       id: likedPost._id,
       url: likedPost.Url,
     }));
-
-    console.log(result);
 
     return res.status(200).json({
       result,
@@ -1171,6 +1180,58 @@ app.get("/likedPosts/:username", async (req, res) => {
   }
 });
 
+app.post("/getCode", async (req, res) => {
+  try {
+    const { UserName } = req.body;
+
+    const user = await User.findOne({ Username: UserName });
+
+    if (!user) {
+      return res.status(401).json({ message: "No user found" });
+    }
+
+    const Code = Math.floor(Math.random() * 900000 + 100000);
+
+    user.Code = Code;
+    await user.save();
+
+    const template = `
+    Hi ${UserName},
+
+We received a request to reset the password for your Nexus account.
+
+Use the verification code below to continue:
+
+${Code}
+
+
+If you didn't request a password reset, you can safely ignore this email. Your account and password will remain unchanged.
+
+Need help? Contact the support team.
+
+
+Connect. Share. Inspire.
+Your social space for discovering creators and connecting with friends.
+
+© 2026 . All rights reserved.
+`;
+
+    await sender.sendMail({
+      from: `"nexus" <${process.env.MAIL_USER}>`,
+      to: user.Email,
+      subject: "password reset code",
+      html: template,
+    });
+
+  return res.status(200).json({
+      message: "check mail for code",
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "something went wrong" });
+  }
+});
 
 app.use((err, req, res, next) => {
   res.status(400).json({ message: err.message });
