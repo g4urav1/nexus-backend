@@ -1438,6 +1438,31 @@ app.post("/verifyCode", async (req, res) => {
   }
 });
 
+app.post("/changePassword", async (req, res) => {
+  try {
+    const { UserName, Password } = req.body;
+
+    const user = await User.findOne({ Username: UserName });
+
+    if (!user) {
+      return res.status(401).json({ message: "No user found" });
+    }
+
+    const hashedPassword = await bcrypt.hash(Password, 10);
+
+    user.Password = hashedPassword;
+    user.Code = undefined;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password Changed",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "something went wrong" });
+  }
+});
+
 app.use((err, req, res, next) => {
   res.status(400).json({ message: err.message });
 });
