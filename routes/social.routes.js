@@ -2,6 +2,8 @@ import express from "express";
 
 import User from "../models/User.js";
 import Posts from "../models/Post.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
 
 import { authenticate } from "../middleware/auth.js";
 
@@ -44,10 +46,7 @@ router.post("/follow", authenticate, async (req, res) => {
         (followerId) => followerId.toString() !== admin._id.toString(),
       );
 
-      profileUser.FollowersCount = Math.max(
-        0,
-        profileUser.FollowersCount - 1,
-      );
+      profileUser.FollowersCount = Math.max(0, profileUser.FollowersCount - 1);
 
       await admin.save();
       await profileUser.save();
@@ -144,6 +143,62 @@ router.get("/notifications", authenticate, async (req, res) => {
 
     return res.status(500).json({
       message: "something went wrong",
+    });
+  }
+});
+
+router.get("/conversations", authenticate, async (req, res) => {
+  try {
+    const conversations = await Conversation.find({
+      participants: req.userId,
+    });
+
+    const result = [];
+
+    for (let i = 0; i < conversations.length; i++) {
+      const participants = conversations[i].participants;
+
+      console.log("participants",participants)
+
+      for (let j = 0; j < participants.length; j++) {
+        const user = await User.findById(participants[j]);
+
+        console.log("user",user)
+
+        if (user) {
+          result.push(user);
+          console.log("result:",result)
+        }
+      }
+    }
+
+    res.status(200).json(result);
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Failed to fetch conversations",
+    });
+  }
+});
+
+router.get("/messages/:conversationId", async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const messages = await Message.find({
+      conversation_id: Number(conversationId),
+    })
+      .sort({ created_at: 1 })
+      .lean();
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Failed to fetch messages",
     });
   }
 });

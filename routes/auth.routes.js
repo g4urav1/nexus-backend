@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { authenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -87,6 +88,18 @@ router.post("/login", async (req, res) => {
       message: "Server Error",
     });
   }
+});
+
+router.post("/logout", (req, res) => {
+  res.clearCookie("jwt", {
+    secure: true,
+    sameSite: "none",
+    httpOnly: true,
+  });
+
+  res.status(200).json({
+    message: "Logout successful",
+  });
 });
 
 export default router;

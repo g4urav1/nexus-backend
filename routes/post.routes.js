@@ -23,6 +23,8 @@ router.get("/", authenticate, async (req, res) => {
       const Owner = await User.findById(feed[i].UserId);
 
       const post = feed[i].toObject();
+      console.log(admin);
+      console.log(Owner);
 
       if (Owner) {
         post.Pfp = Owner.Pfp;

@@ -2,7 +2,9 @@ import express from "express";
 import User from "../models/User.js";
 import Posts from "../models/Post.js";
 import { authenticate } from "../middleware/auth.js";
+import cloudinary from "../config/cloudinary.js";
 import memoryUpload from "../middleware/upload.js";
+import { fileTypeFromBuffer } from "file-type";
 
 const router = express.Router();
 
@@ -155,11 +157,7 @@ router.post(
       if (req.file) {
         const mimetype = await fileTypeFromBuffer(req.file.buffer);
 
-        const allowedTypes = [
-          "image/png",
-          "image/jpg",
-          "image/jpeg",
-        ];
+        const allowedTypes = ["image/png", "image/jpg", "image/jpeg"];
 
         if (!mimetype || !allowedTypes.includes(mimetype.mime)) {
           return res.status(400).json({
@@ -169,21 +167,18 @@ router.post(
 
         await new Promise((resolve, reject) => {
           cloudinary.uploader
-            .upload_stream(
-              { resource_type: "image" },
-              async (err, result) => {
-                if (err) {
-                  console.log(err);
-                  return reject(err);
-                }
+            .upload_stream({ resource_type: "image" }, async (err, result) => {
+              if (err) {
+                console.log(err);
+                return reject(err);
+              }
 
-                if (result?.secure_url) {
-                  admin.Pfp = result.secure_url;
-                }
+              if (result?.secure_url) {
+                admin.Pfp = result.secure_url;
+              }
 
-                resolve();
-              },
-            )
+              resolve();
+            })
             .end(req.file.buffer);
         });
       }
