@@ -144,7 +144,7 @@ db.conversations.aggregate([
 db.conversations.aggregate([
   {
     $match: {
-      participants: "1"
+      participants: ObjectId('6aa4d2ce9ba053b358742c4c')
     }
   },
   {

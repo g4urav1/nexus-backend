@@ -151,29 +151,23 @@ router.get("/conversations", authenticate, async (req, res) => {
   try {
     const conversations = await Conversation.find({
       participants: req.userId,
+    }).populate("participants", "Username Pfp");
+
+    const result = conversations.map((conversation) => {
+      const otherUsers = conversation.participants.filter(
+        (user) => user._id.toString() !== req.userId.toString(),
+      );
+
+      return {
+        conversationId: conversation._id,
+        participants: otherUsers.map((user) => ({
+          pfp: user.Pfp || "",
+          Username: user.Username || "Unknown User",
+        })),
+      };
     });
 
-    const result = [];
-
-    for (let i = 0; i < conversations.length; i++) {
-      const participants = conversations[i].participants;
-
-      console.log("participants",participants)
-
-      for (let j = 0; j < participants.length; j++) {
-        const user = await User.findById(participants[j]);
-
-        console.log("user",user)
-
-        if (user) {
-          result.push(user);
-          console.log("result:",result)
-        }
-      }
-    }
-
     res.status(200).json(result);
-
   } catch (error) {
     console.log(error);
 
@@ -188,10 +182,9 @@ router.get("/messages/:conversationId", async (req, res) => {
     const { conversationId } = req.params;
 
     const messages = await Message.find({
-      conversation_id: Number(conversationId),
+      conversation_id: conversationId,
     })
-      .sort({ created_at: 1 })
-      .lean();
+     
 
     res.status(200).json(messages);
   } catch (error) {
