@@ -1,6 +1,7 @@
 import express from "express";
 import User from "../models/User.js";
 import Posts from "../models/Post.js";
+import Conversation from "../models/Conversation.js";
 import { authenticate } from "../middleware/auth.js";
 import cloudinary from "../config/cloudinary.js";
 import memoryUpload from "../middleware/upload.js";
@@ -92,6 +93,19 @@ router.get("/user/:Username", authenticate, async (req, res) => {
       });
     }
 
+    // Find existing conversation
+    let conversation = await Conversation.findOne({
+      participants: {
+        $all: [profileUser._id, req.userId],
+      },
+    });
+
+    if (!conversation) {
+      conversation = await Conversation.create({
+        participants: [profileUser._id, req.userId],
+      });
+    }
+
     const userPosts = await Posts.find({
       UserId: profileUser._id,
     });
@@ -107,7 +121,8 @@ router.get("/user/:Username", authenticate, async (req, res) => {
 
       postObject.isLiked =
         admin.Liked?.some(
-          (likedPostId) => likedPostId.toString() === postObject._id.toString(),
+          (likedPostId) =>
+            likedPostId.toString() === postObject._id.toString(),
         ) ?? false;
 
       return postObject;
@@ -120,6 +135,7 @@ router.get("/user/:Username", authenticate, async (req, res) => {
       },
       isFollowing,
       UserPosts: postresult,
+      conversationId: conversation._id,
     });
   } catch (error) {
     console.error(error);
@@ -129,7 +145,6 @@ router.get("/user/:Username", authenticate, async (req, res) => {
     });
   }
 });
-
 router.post(
   "/edit_profile",
   authenticate,

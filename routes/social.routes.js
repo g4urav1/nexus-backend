@@ -1,5 +1,4 @@
 import express from "express";
-
 import User from "../models/User.js";
 import Posts from "../models/Post.js";
 import Conversation from "../models/Conversation.js";
@@ -183,8 +182,9 @@ router.get("/messages/:conversationId", async (req, res) => {
 
     const messages = await Message.find({
       conversation_id: conversationId,
-    })
-     
+    }).sort({ created_at: -1 });
+
+    messages.reverse();
 
     res.status(200).json(messages);
   } catch (error) {
@@ -192,6 +192,31 @@ router.get("/messages/:conversationId", async (req, res) => {
 
     res.status(500).json({
       message: "Failed to fetch messages",
+    });
+  }
+});
+
+router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { content } = req.body;
+
+    const message = await Message.create({
+      user_id: req.userId,
+      content: content,
+      conversation_id: conversationId,
+      created_at: Date.now(),
+    });
+
+    return res.status(200).json({
+      message: "sent",
+      data: message,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      message: "Failed to send message",
     });
   }
 });
