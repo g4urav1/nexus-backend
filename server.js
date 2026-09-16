@@ -13,8 +13,6 @@ import passwordRoutes from "./routes/password.routes.js";
 
 const app = express();
 
-
-
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -26,21 +24,14 @@ app.use(express.json());
 
 app.use(cookieParser());
 
-
-
 mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
-    console.log(
-      "MongoDB connected:",
-      mongoose.connection.name,
-    );
+    console.log("MongoDB connected:", mongoose.connection.name);
   })
   .catch((error) => {
     console.error("MongoDB connection error:", error);
   });
-
-
 
 app.use("/", authRoutes);
 
@@ -52,8 +43,6 @@ app.use("/", socialRoutes);
 
 app.use("/", passwordRoutes);
 
-
-
 app.use((err, req, res, next) => {
   console.error(err);
 
@@ -61,8 +50,6 @@ app.use((err, req, res, next) => {
     message: err.message,
   });
 });
-
-
 
 app.listen(1111, () => {
   console.log("http://localhost:1111");

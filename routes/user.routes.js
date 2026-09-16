@@ -121,8 +121,7 @@ router.get("/user/:Username", authenticate, async (req, res) => {
 
       postObject.isLiked =
         admin.Liked?.some(
-          (likedPostId) =>
-            likedPostId.toString() === postObject._id.toString(),
+          (likedPostId) => likedPostId.toString() === postObject._id.toString(),
         ) ?? false;
 
       return postObject;

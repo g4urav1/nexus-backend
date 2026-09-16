@@ -7,7 +7,6 @@ import sender from "../config/mail.js";
 
 const router = express.Router();
 
-
 router.post("/getCode", async (req, res) => {
   try {
     const { UserName } = req.body;
@@ -275,7 +274,6 @@ router.post("/getCode", async (req, res) => {
   }
 });
 
-
 router.post("/verifyCode", async (req, res) => {
   try {
     const { UserName, Code } = req.body;
@@ -309,7 +307,6 @@ router.post("/verifyCode", async (req, res) => {
     });
   }
 });
-
 
 router.post("/changePassword", async (req, res) => {
   try {
