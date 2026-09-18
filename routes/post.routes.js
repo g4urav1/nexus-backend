@@ -132,6 +132,8 @@ router.post("/likes", authenticate, async (req, res) => {
     const id = req.body.PostId;
     const post = await Posts.findById(id);
 
+    const io = req.app.get("io");
+
     if (!admin || !post) {
       return res.status(404).json({
         message: "User or post not found",
@@ -169,6 +171,8 @@ router.post("/likes", authenticate, async (req, res) => {
         },
       });
 
+      io.emit("getFeed", "disliked the post");
+
       return res.status(200).json({
         message: "Post disliked",
         isLiked: false,
@@ -193,6 +197,8 @@ router.post("/likes", authenticate, async (req, res) => {
         },
       },
     });
+
+    io.emit("getFeed", "liked the post");
 
     return res.status(200).json({
       message: "Post liked",
@@ -279,13 +285,14 @@ router.post("/addComments", authenticate, async (req, res) => {
 
 router.get("/getComments/:id", authenticate, async (req, res) => {
   try {
-    const admin = await User.findById(req.userId);
-
     const post = await Posts.findById(req.params.id);
 
     const Comments = post.Comments;
 
+    const io = req.app.get("io");
+
     const result = [];
+    
 
     for (let i = 0; i < Comments.length; i++) {
       const commenter = await User.findById(Comments[i].Commenter);
@@ -297,6 +304,9 @@ router.get("/getComments/:id", authenticate, async (req, res) => {
         CommenterPfp: commenter.Pfp,
       });
     }
+
+    io.emit("getFeed", "commented on post");
+
     return res.status(200).json(result.reverse());
   } catch (error) {
     console.log(error);

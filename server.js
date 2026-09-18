@@ -11,7 +11,16 @@ import postRoutes from "./routes/post.routes.js";
 import socialRoutes from "./routes/social.routes.js";
 import passwordRoutes from "./routes/password.routes.js";
 
+import { Socket } from "./socket/socket.js";
+
+import http from "http";
+
 const app = express();
+const server = http.createServer(app);
+
+const io = Socket(server);
+
+app.set("io", io);
 
 app.use(
   cors({
@@ -51,6 +60,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(1111, () => {
+app.get("/randomroute", (req, res) => {
+  io.emit("randomRouteHit", "Someone just hit the randomroute route!");
+  res.status(200).json({ message: "hmm!!!" });
+});
+
+server.listen(1111, () => {
   console.log("http://localhost:1111");
 });
