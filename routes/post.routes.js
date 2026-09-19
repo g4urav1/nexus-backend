@@ -171,7 +171,10 @@ router.post("/likes", authenticate, async (req, res) => {
         },
       });
 
-      io.emit("getFeed", "disliked the post");
+      io.emit("getLikes", {
+        postId: post._id,
+        likes: post.Likes,
+      });
 
       return res.status(200).json({
         message: "Post disliked",
@@ -198,7 +201,10 @@ router.post("/likes", authenticate, async (req, res) => {
       },
     });
 
-    io.emit("getFeed", "liked the post");
+    io.emit("getLikes", {
+      postId: post._id,
+      likes: post.Likes,
+    });
 
     return res.status(200).json({
       message: "Post liked",
@@ -266,7 +272,18 @@ router.post("/addComments", authenticate, async (req, res) => {
 
     const newComment = post.Comments[post.Comments.length - 1];
 
-    return res.status(200).json({
+    const io = req.app.get("io");
+
+    res.status(200).json({
+      id: newComment._id,
+      Commenter: admin.Username,
+      CommenterPfp: admin.Pfp,
+      Comment: newComment.CommentText,
+      CommentedAt: newComment.CommentedAt,
+      CommentCount: post.Comments.length,
+    });
+
+    io.emit("getComments", {
       id: newComment._id,
       Commenter: admin.Username,
       CommenterPfp: admin.Pfp,
@@ -283,16 +300,66 @@ router.post("/addComments", authenticate, async (req, res) => {
   }
 });
 
+router.post("/deleteComment", authenticate, async (req, res) => {
+  try {
+    const admin = await User.findById(req.userId);
+
+    const toDelete = req.body.CommentId;
+
+    const id = req.body.PostId;
+
+    if (!toDelete) {
+      return res.status(400).json({
+        message: "Invalid Action",
+      });
+    }
+
+    const post = await Posts.findById(id);
+    const owner = await User.findById(post.UserId);
+
+    if (!admin || !post) {
+      return res.status(404).json({
+        message: "User or post not found",
+      });
+    }
+
+    if (!owner) {
+      return res.status(404).json({
+        message: "Post owner not found",
+      });
+    }
+
+    post.Comments.pull({
+      _id: toDelete,
+    });
+
+    post.CommentCount = post.Comments.length;
+
+    await post.save();
+
+    const io = req.app.get("io");
+
+    res.status(200).json({
+      CommentCount: post.Comments.length,
+    });
+
+    io.emit("getComments", "commented on post");
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
 router.get("/getComments/:id", authenticate, async (req, res) => {
   try {
     const post = await Posts.findById(req.params.id);
 
     const Comments = post.Comments;
 
-    const io = req.app.get("io");
-
     const result = [];
-    
 
     for (let i = 0; i < Comments.length; i++) {
       const commenter = await User.findById(Comments[i].Commenter);
@@ -304,8 +371,6 @@ router.get("/getComments/:id", authenticate, async (req, res) => {
         CommenterPfp: commenter.Pfp,
       });
     }
-
-    io.emit("getFeed", "commented on post");
 
     return res.status(200).json(result.reverse());
   } catch (error) {
