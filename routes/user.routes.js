@@ -112,9 +112,9 @@ router.get("/user/:Username", authenticate, async (req, res) => {
 
     const isFollowing =
       admin.Following?.some(
-        (followingUserId) =>
-          followingUserId.toString() === profileUser._id.toString(),
-      ) ?? false;
+        (followingId) =>
+          followingId.toString() === profileUser._id.toString(),
+      );
 
     const postresult = userPosts.map((post) => {
       const postObject = post.toObject();
@@ -144,6 +144,7 @@ router.get("/user/:Username", authenticate, async (req, res) => {
     });
   }
 });
+
 router.post(
   "/edit_profile",
   authenticate,
@@ -211,6 +212,7 @@ router.post(
     }
   },
 );
+
 router.get("/searchUsers", authenticate, async (req, res) => {
   try {
     const admin = await User.findById(req.userId);
@@ -242,6 +244,7 @@ router.get("/searchUsers", authenticate, async (req, res) => {
     }));
 
     return res.status(200).json(isFollowing);
+    
   } catch (err) {
     console.error("Search users error:", err);
 

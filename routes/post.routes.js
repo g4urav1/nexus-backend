@@ -329,6 +329,16 @@ router.post("/deleteComment", authenticate, async (req, res) => {
       });
     }
 
+    await User.findByIdAndUpdate(owner._id, {
+      $pull: {
+        Notifications: {
+          type: "comment",
+          by: admin._id,
+          postId: post._id,
+        },
+      },
+    });
+
     post.Comments.pull({
       _id: toDelete,
     });

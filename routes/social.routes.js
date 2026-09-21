@@ -199,12 +199,16 @@ router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
     const { conversationId } = req.params;
     const { content } = req.body;
 
+    const io = req.app.get("io");
+
     const message = await Message.create({
       user_id: req.userId,
       content: content,
       conversation_id: conversationId,
       created_at: Date.now(),
     });
+
+    io.emit("RefreshMsg", "Getting Messages");
 
     return res.status(200).json({
       message: "sent",
