@@ -40,8 +40,6 @@ const UserSchema = new mongoose.Schema({
 
   Notifications: [
     {
-      type: Object,
-
       message: String,
 
       sentAt: {
@@ -57,6 +55,9 @@ const UserSchema = new mongoose.Schema({
       postId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Posts",
+      },
+      commentId: {
+        type: String,
       },
     },
   ],

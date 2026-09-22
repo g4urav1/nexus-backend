@@ -165,7 +165,7 @@ router.post("/likes", authenticate, async (req, res) => {
       await User.findByIdAndUpdate(owner._id, {
         $pull: {
           Notifications: {
-            type: "like",
+            message: "liked your post.",
             postId: post._id,
           },
         },
@@ -175,6 +175,7 @@ router.post("/likes", authenticate, async (req, res) => {
         postId: post._id,
         likes: post.Likes,
       });
+      io.emit("sendNotification", "Notification");
 
       return res.status(200).json({
         message: "Post disliked",
@@ -192,7 +193,6 @@ router.post("/likes", authenticate, async (req, res) => {
     await User.findByIdAndUpdate(owner._id, {
       $push: {
         Notifications: {
-          type: "like",
           message: "liked your post.",
           sentAt: new Date(),
           by: admin._id,
@@ -206,6 +206,7 @@ router.post("/likes", authenticate, async (req, res) => {
       likes: post.Likes,
     });
 
+    io.emit("sendNotification", "Notification");
     return res.status(200).json({
       message: "Post liked",
       isLiked: true,
@@ -258,19 +259,19 @@ router.post("/addComments", authenticate, async (req, res) => {
 
     await post.save();
 
+    const newComment = post.Comments[post.Comments.length - 1];
+
     await User.findByIdAndUpdate(owner._id, {
       $push: {
         Notifications: {
-          type: "comment",
           message: `commented "${CommentTxt}" on your post.`,
           sentAt: new Date(),
           by: admin._id,
           postId: post._id,
+          commentId: newComment._id,
         },
       },
     });
-
-    const newComment = post.Comments[post.Comments.length - 1];
 
     const io = req.app.get("io");
 
@@ -291,6 +292,8 @@ router.post("/addComments", authenticate, async (req, res) => {
       CommentedAt: newComment.CommentedAt,
       CommentCount: post.Comments.length,
     });
+
+    io.emit("sendNotification", "Notification");
   } catch (error) {
     console.error(error);
 
@@ -332,9 +335,7 @@ router.post("/deleteComment", authenticate, async (req, res) => {
     await User.findByIdAndUpdate(owner._id, {
       $pull: {
         Notifications: {
-          type: "comment",
-          by: admin._id,
-          postId: post._id,
+          commentId: toDelete,
         },
       },
     });
@@ -348,6 +349,8 @@ router.post("/deleteComment", authenticate, async (req, res) => {
     await post.save();
 
     const io = req.app.get("io");
+
+    io.emit("sendNotification", "Notification");
 
     res.status(200).json({
       CommentCount: post.Comments.length,

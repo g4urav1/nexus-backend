@@ -82,7 +82,6 @@ router.post("/follow", authenticate, async (req, res) => {
     await User.findByIdAndUpdate(profileUser._id, {
       $push: {
         Notifications: {
-          type: "Follow",
           message: "Followed You.",
           sentAt: new Date(),
           by: admin._id,
@@ -193,6 +192,7 @@ router.get("/messages/:conversationId", async (req, res) => {
     });
   }
 });
+
 
 router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
   try {
