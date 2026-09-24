@@ -193,7 +193,6 @@ router.get("/messages/:conversationId", async (req, res) => {
   }
 });
 
-
 router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -208,7 +207,7 @@ router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
       created_at: Date.now(),
     });
 
-    io.emit("RefreshMsg", "Getting Messages");
+    io.emit("RefreshMsg", { message });
 
     return res.status(200).json({
       message: "sent",
