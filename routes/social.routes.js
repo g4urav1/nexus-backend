@@ -179,11 +179,17 @@ router.get("/messages/:conversationId", async (req, res) => {
   try {
     const { conversationId } = req.params;
 
+    const limit = 10;
+    const skip = Number(req.query.skip) || 0;
+
     const messages = await Message.find({
       conversation_id: conversationId,
-    });
+    })
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    res.status(200).json(messages);
+    res.status(200).json(messages.reverse());
   } catch (error) {
     console.error(error);
 
@@ -207,7 +213,7 @@ router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
       created_at: Date.now(),
     });
 
-    io.emit("RefreshMsg", { message });
+    io.to(`conversation:${conversationId}`).emit("RefreshMsg", message);
 
     return res.status(200).json({
       message: "sent",
