@@ -205,6 +205,8 @@ router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
     const { content } = req.body;
 
     const io = req.app.get("io");
+    const sender = await User.findById(req.userId);
+    const Username = sender.Username;
 
     const message = await Message.create({
       user_id: req.userId,
@@ -213,7 +215,10 @@ router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
       created_at: Date.now(),
     });
 
-    io.to(`conversation:${conversationId}`).emit("RefreshMsg", message);
+    io.to(`conversation:${conversationId}`).emit("RefreshMsg", {
+      message,
+      Username,
+    });
 
     return res.status(200).json({
       message: "sent",
