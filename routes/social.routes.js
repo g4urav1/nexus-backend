@@ -233,40 +233,47 @@ router.post("/sendMessages/:conversationId", authenticate, async (req, res) => {
   }
 });
 
-router.get(
-  "/getCallDetail/:conversationId",
-  authenticate,
-  async (req, res) => {
-    try {
-      const { conversationId } = req.params;
+router.get("/getCallDetail/:conversationId", authenticate, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
 
-      const conversation = await Conversation.findById(conversationId).populate(
-        "participants",
-        "Username Pfp",
-      );
+    const conversation = await Conversation.findById(conversationId).populate(
+      "participants",
+      "Username Pfp",
+    );
 
-      const otherUsers = conversation.participants.filter(
-        (user) => user._id.toString() !== req.userId.toString(),
-      );
+    const otherUsers = conversation.participants.filter(
+      (user) => user._id.toString() !== req.userId.toString(),
+    );
 
-      const result = {
-        participants: otherUsers.map((user) => ({
-          pfp: user.Pfp || "",
-          Username: user.Username || "Unknown User",
-        })),
-      };
+    const result = {
+      participants: otherUsers.map((user) => ({
+        pfp: user.Pfp || "",
+        Username: user.Username || "Unknown User",
+      })),
+    };
 
-      console.log(result);
+    const io = req.app.get("io");
 
-      return res.status(200).json(result);
-    } catch (error) {
-      console.log(error);
+    const caller = await User.findById(req.userId);
 
-      return res.status(500).json({
-        message: "Failed to send message",
-      });
-    }
-  },
-);
+    io.to(`conversation:${conversationId}`).emit("GetCall", {
+      conversationId,
+      callerId: caller._id.toString(),
+      Username: caller.Username,
+    });
+
+    console.log(caller);
+    console.log(result);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      message: "Failed to send message",
+    });
+  }
+});
 
 export default router;
