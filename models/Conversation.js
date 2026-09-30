@@ -9,9 +9,16 @@ const conversationSchema = new mongoose.Schema(
         required: true,
       },
     ],
-    CallStatus:{
-      type:String
-    }
+    Caller: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    Receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   {
     collection: "conversations",
