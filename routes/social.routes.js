@@ -242,6 +242,12 @@ router.get("/getCallDetail/:conversationId", authenticate, async (req, res) => {
       "Username Pfp",
     );
 
+    if (!conversation) {
+      return res.status(404).json({
+        message: "Conversation not found",
+      });
+    }
+
     const otherUsers = conversation.participants.filter(
       (user) => user._id.toString() !== req.userId.toString(),
     );
@@ -253,25 +259,29 @@ router.get("/getCallDetail/:conversationId", authenticate, async (req, res) => {
       })),
     };
 
-    const io = req.app.get("io");
-
     const caller = await User.findById(req.userId);
+
+    if (!caller) {
+      return res.status(404).json({
+        message: "Caller not found",
+      });
+    }
+
+    const io = req.app.get("io");
 
     io.to(`conversation:${conversationId}`).emit("GetCall", {
       conversationId,
       callerId: caller._id.toString(),
-      Username: caller.Username,
+      Username: caller.Username || "Unknown User",
+      pfp: caller.Pfp || "",
     });
-
-    console.log(caller);
-    console.log(result);
 
     return res.status(200).json(result);
   } catch (error) {
-    console.log(error);
+    console.error("getCallDetail error:", error);
 
     return res.status(500).json({
-      message: "Failed to send message",
+      message: "Failed to get call details",
     });
   }
 });

@@ -9,6 +9,9 @@ const conversationSchema = new mongoose.Schema(
         required: true,
       },
     ],
+    CallStatus:{
+      type:String
+    }
   },
   {
     collection: "conversations",
