@@ -253,95 +253,72 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
       });
     }
 
-    const receiver = conversation.participants.find(
+    const receiverId = conversation.participants.find(
       (userId) => userId.toString() !== req.userId.toString(),
     );
 
-    if (!receiver) {
+    if (!receiverId) {
       return res.status(400).json({
         message: "Receiver not found",
       });
     }
 
-    conversation.CallStatus = "Calling";
-    conversation.Caller = caller._id;
-    conversation.Receiver = receiver;
+    const receiver = await User.findById(receiverId);
 
+    if (!receiver) {
+      return res.status(404).json({
+        message: "Receiver user not found",
+      });
+    }
+
+    receiver.CallStatus = "incoming";
+    caller.CallStatus = "Calling";
+
+    conversation.Caller = caller._id;
+    conversation.Receiver = receiver._id;
+
+    await caller.save();
+    await receiver.save();
     await conversation.save();
+
+    const callerDetails = await User.findById(conversation.Caller).select(
+      "_id Username Pfp CallStatus",
+    );
+
+    const receiverDetails = await User.findById(conversation.Receiver).select(
+      "_id Username Pfp CallStatus",
+    );
 
     const io = req.app.get("io");
 
     io.to(`conversation:${conversationId}`).emit("GetCall", {
       conversationId,
-      callerId: caller._id.toString(),
-      Username: caller.Username || "Unknown User",
-      pfp: caller.Pfp || "",
+
+      caller: {
+        _id: callerDetails._id,
+        Username: callerDetails.Username,
+        Pfp: callerDetails.Pfp || "",
+        CallStatus: callerDetails.CallStatus,
+      },
+
+      receiver: {
+        _id: receiverDetails._id,
+        Username: receiverDetails.Username,
+        Pfp: receiverDetails.Pfp || "",
+        CallStatus: receiverDetails.CallStatus,
+      },
     });
 
     return res.status(200).json({
-      message: "Call started",
-      CallStatus: conversation.CallStatus,
-      Caller: conversation.Caller,
-      Receiver: conversation.Receiver,
+      callerDetails,
+      receiverDetails,
     });
   } catch (error) {
     console.error("CALL ERROR:", error);
 
     return res.status(500).json({
       message: "Failed to start call",
-    });
-  }
-});
-
-router.get("/getCallDetail/:conversationId", authenticate, async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-
-    const conversation = await Conversation.findById(conversationId).populate(
-      "participants",
-      "Username Pfp",
-    );
-
-    if (!conversation) {
-      return res.status(404).json({
-        message: "Conversation not found",
-      });
-    }
-
-    const otherUsers = conversation.participants.filter(
-      (user) => user._id.toString() !== req.userId.toString(),
-    );
-
-    const result = {
-      participants: otherUsers.map((user) => ({
-        pfp: user.Pfp || "",
-        Username: user.Username || "Unknown User",
-      })),
-    };
-
-    const caller = await User.findById(req.userId);
-
-    if (!caller) {
-      return res.status(404).json({
-        message: "Caller not found",
-      });
-    }
-
-    const io = req.app.get("io");
-
-    io.to(`conversation:${conversationId}`).emit("GetCall", {
-      conversationId,
-      callerId: caller._id.toString(),
-      Username: caller.Username || "Unknown User",
-      pfp: caller.Pfp || "",
-    });
-
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error("getCallDetail error:", error);
-
-    return res.status(500).json({
-      message: "Failed to get call details",
+      error: error.message,
     });
   }
 });

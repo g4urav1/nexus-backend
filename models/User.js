@@ -93,6 +93,9 @@ const UserSchema = new mongoose.Schema({
       ).padStart(2, "0")}/${date.getFullYear()}`;
     },
   },
+  CallStatus: {
+    type: String,
+  },
 });
 
 const User = mongoose.model("User", UserSchema);
