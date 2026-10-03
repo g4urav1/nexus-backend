@@ -368,4 +368,49 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
   }
 });
 
+router.get("/call/:conversationId", authenticate, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId)
+      .populate("Caller", "_id Username Pfp CallStatus")
+      .populate("Receiver", "_id Username Pfp CallStatus");
+
+    if (!conversation) {
+      return res.status(404).json({
+        message: "Conversation not found",
+      });
+    }
+
+    return res.status(200).json({
+      conversationId,
+
+      callerDetails: conversation.Caller
+        ? {
+            _id: conversation.Caller._id,
+            Username: conversation.Caller.Username,
+            Pfp: conversation.Caller.Pfp || "",
+            CallStatus: conversation.Caller.CallStatus,
+          }
+        : null,
+
+      receiverDetails: conversation.Receiver
+        ? {
+            _id: conversation.Receiver._id,
+            Username: conversation.Receiver.Username,
+            Pfp: conversation.Receiver.Pfp || "",
+            CallStatus: conversation.Receiver.CallStatus,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("GET CALL ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to get call details",
+      error: error.message,
+    });
+  }
+});
+
 export default router;
