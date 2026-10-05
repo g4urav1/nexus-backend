@@ -272,8 +272,9 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
     }
 
     receiver.CallStatus = "incoming";
+    receiver.isCamOn = true;
     caller.CallStatus = "Calling";
-
+    caller.isCamOn = true;
     conversation.Caller = caller._id;
     conversation.Receiver = receiver._id;
 
@@ -299,6 +300,7 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         Username: callerDetails.Username,
         Pfp: callerDetails.Pfp || "",
         CallStatus: callerDetails.CallStatus,
+        isCamOn: caller.isCamOn,
       },
 
       receiver: {
@@ -306,6 +308,7 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         Username: receiverDetails.Username,
         Pfp: receiverDetails.Pfp || "",
         CallStatus: receiverDetails.CallStatus,
+        isCamOn: receiver.isCamOn,
       },
     });
 
@@ -328,8 +331,8 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
     const { conversationId } = req.params;
 
     const conversation = await Conversation.findById(conversationId)
-      .populate("Caller", "_id Username Pfp CallStatus")
-      .populate("Receiver", "_id Username Pfp CallStatus");
+      .populate("Caller", "_id Username Pfp CallStatus isCamOn")
+      .populate("Receiver", "_id Username Pfp CallStatus isCamOn");
 
     if (!conversation) {
       return res.status(404).json({
@@ -346,6 +349,7 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
             Username: conversation.Caller.Username,
             Pfp: conversation.Caller.Pfp || "",
             CallStatus: conversation.Caller.CallStatus,
+            isCamOn: conversation.Caller.isCamOn,
           }
         : null,
 
@@ -355,6 +359,7 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
             Username: conversation.Receiver.Username,
             Pfp: conversation.Receiver.Pfp || "",
             CallStatus: conversation.Receiver.CallStatus,
+            isCamOn: conversation.Receiver.isCamOn,
           }
         : null,
     });
@@ -373,8 +378,8 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
     const { conversationId } = req.params;
 
     const conversation = await Conversation.findById(conversationId)
-      .populate("Caller", "_id Username Pfp CallStatus")
-      .populate("Receiver", "_id Username Pfp CallStatus");
+      .populate("Caller", "_id Username Pfp CallStatus isCamOn")
+      .populate("Receiver", "_id Username Pfp CallStatus isCamOn");
 
     if (!conversation) {
       return res.status(404).json({
@@ -391,6 +396,7 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
             Username: conversation.Caller.Username,
             Pfp: conversation.Caller.Pfp || "",
             CallStatus: conversation.Caller.CallStatus,
+            isCamOn: conversation.Caller.isCamOn,
           }
         : null,
 
@@ -400,6 +406,7 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
             Username: conversation.Receiver.Username,
             Pfp: conversation.Receiver.Pfp || "",
             CallStatus: conversation.Receiver.CallStatus,
+            isCamOn: conversation.Receiver.isCamOn,
           }
         : null,
     });
