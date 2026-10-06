@@ -14,6 +14,7 @@ import passwordRoutes from "./routes/password.routes.js";
 import { Socket } from "./socket/socket.js";
 
 import http from "http";
+import { authenticate } from "./middleware/auth.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -64,6 +65,8 @@ app.get("/randomroute", (req, res) => {
   io.emit("randomRouteHit", "Someone just hit the randomroute route!");
   res.status(200).json({ message: "hmm!!!" });
 });
+
+// peerjs
 
 server.listen(1111, () => {
   console.log("http://localhost:1111");

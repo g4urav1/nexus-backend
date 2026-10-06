@@ -8,6 +8,19 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 
+const peers = {};
+
+router.post("/connect/peer", authenticate, async (req, res) => {
+  const { peerId } = req.body;
+  const userId = req.userId;
+
+  const user = await User.findById(userId);
+
+  user.Peer = peerId;
+
+  console.log(user.Peer);
+});
+
 router.post("/follow", authenticate, async (req, res) => {
   try {
     const admin = await User.findById(req.userId);
@@ -292,6 +305,12 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
 
     const io = req.app.get("io");
 
+    console.log("--------------------------------------------");
+    console.log("Caller id: ", callerDetails._id);
+    console.log("Rceiver Id: ", receiverDetails._id);
+    console.log(peers);
+    console.log("-----------------------------------------------");
+
     io.to(`conversation:${conversationId}`).emit("GetCall", {
       conversationId,
 
@@ -311,6 +330,11 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         isCamOn: receiver.isCamOn,
       },
     });
+
+    console.log(
+      "############################ call initiated ###############3",
+      Date.now().toString(),
+    );
 
     return res.status(200).json({
       callerDetails,
@@ -373,13 +397,12 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
   }
 });
 
-router.get("/call/:conversationId", authenticate, async (req, res) => {
+router.post("/call/:conversationId/status", authenticate, async (req, res) => {
   try {
     const { conversationId } = req.params;
+    const { status } = req.body;
 
-    const conversation = await Conversation.findById(conversationId)
-      .populate("Caller", "_id Username Pfp CallStatus isCamOn")
-      .populate("Receiver", "_id Username Pfp CallStatus isCamOn");
+    const conversation = await Conversation.findById(conversationId);
 
     if (!conversation) {
       return res.status(404).json({
@@ -387,34 +410,28 @@ router.get("/call/:conversationId", authenticate, async (req, res) => {
       });
     }
 
+    if (status == "onCall") {
+    }
+
     return res.status(200).json({
+      message: "Call status updated successfully",
       conversationId,
 
-      callerDetails: conversation.Caller
-        ? {
-            _id: conversation.Caller._id,
-            Username: conversation.Caller.Username,
-            Pfp: conversation.Caller.Pfp || "",
-            CallStatus: conversation.Caller.CallStatus,
-            isCamOn: conversation.Caller.isCamOn,
-          }
-        : null,
+      caller: {
+        _id: conversation.Caller,
+        CallStatus: "Calling",
+      },
 
-      receiverDetails: conversation.Receiver
-        ? {
-            _id: conversation.Receiver._id,
-            Username: conversation.Receiver.Username,
-            Pfp: conversation.Receiver.Pfp || "",
-            CallStatus: conversation.Receiver.CallStatus,
-            isCamOn: conversation.Receiver.isCamOn,
-          }
-        : null,
+      receiver: {
+        _id: conversation.Receiver,
+        CallStatus: "Incoming",
+      },
     });
   } catch (error) {
-    console.error("GET CALL ERROR:", error);
+    console.error("UPDATE CALL STATUS ERROR:", error);
 
     return res.status(500).json({
-      message: "Failed to get call details",
+      message: "Failed to update call status",
       error: error.message,
     });
   }

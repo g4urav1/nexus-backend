@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
+  Peer: {
+    type: String,
+  },
   Email: {
     type: String,
   },
@@ -93,7 +96,6 @@ const UserSchema = new mongoose.Schema({
       ).padStart(2, "0")}/${date.getFullYear()}`;
     },
   },
-
 });
 
 const User = mongoose.model("User", UserSchema);
