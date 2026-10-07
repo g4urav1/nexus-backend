@@ -328,7 +328,7 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         Username: callerDetails.Username,
         Pfp: callerDetails.Pfp || "",
         CallStatus: callerDetails.CallStatus,
-        isCamOn: caller.isCamOn,
+        peerId: callerDetails.peerId,
       },
 
       receiver: {
@@ -336,7 +336,7 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         Username: receiverDetails.Username,
         Pfp: receiverDetails.Pfp || "",
         CallStatus: receiverDetails.CallStatus,
-        isCamOn: receiver.isCamOn,
+        peerId: receiverDetails.peerId,
       },
     });
 
