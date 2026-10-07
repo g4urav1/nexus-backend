@@ -16,9 +16,10 @@ router.post("/connect/peer", authenticate, async (req, res) => {
 
   const user = await User.findById(userId);
 
-  user.Peer = peerId;
+  user.peerId = peerId;
+  await user.save();
 
-  console.log(user.Peer);
+  console.log(user.peerId);
 });
 
 router.post("/follow", authenticate, async (req, res) => {
@@ -296,11 +297,11 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
     await conversation.save();
 
     const callerDetails = await User.findById(conversation.Caller).select(
-      "_id Username Pfp CallStatus",
+      "_id Username Pfp CallStatus peerId",
     );
 
     const receiverDetails = await User.findById(conversation.Receiver).select(
-      "_id Username Pfp CallStatus",
+      "_id Username Pfp CallStatus peerId",
     );
 
     const io = req.app.get("io");
@@ -308,7 +309,15 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
     console.log("--------------------------------------------");
     console.log("Caller id: ", callerDetails._id);
     console.log("Rceiver Id: ", receiverDetails._id);
-    console.log(peers);
+    console.log(
+      callerDetails._id,
+      ":",
+      callerDetails.peerId,
+      `\n`,
+      receiverDetails._id,
+      ":",
+      receiverDetails.peerId,
+    );
     console.log("-----------------------------------------------");
 
     io.to(`conversation:${conversationId}`).emit("GetCall", {
@@ -402,30 +411,26 @@ router.post("/call/:conversationId/status", authenticate, async (req, res) => {
     const { conversationId } = req.params;
     const { status } = req.body;
 
-    const conversation = await Conversation.findById(conversationId);
+    const conversation = await Conversation.findById(conversationId)
+      .populate("Caller", "_id Username Pfp CallStatus isCamOn peerId")
+      .populate("Receiver", "_id Username Pfp CallStatus isCamOn peerId");
 
     if (!conversation) {
       return res.status(404).json({
         message: "Conversation not found",
       });
     }
+    const io = req.app.get("io");
 
-    if (status == "onCall") {
+    if (status === "ended" || status === "OnCall") {
+      io.to(`conversation:${conversationId}`).emit("updateStatus", {
+        conversationId,
+
+        status,
+      });
     }
-
     return res.status(200).json({
-      message: "Call status updated successfully",
-      conversationId,
-
-      caller: {
-        _id: conversation.Caller,
-        CallStatus: "Calling",
-      },
-
-      receiver: {
-        _id: conversation.Receiver,
-        CallStatus: "Incoming",
-      },
+      message: "updated",
     });
   } catch (error) {
     console.error("UPDATE CALL STATUS ERROR:", error);
