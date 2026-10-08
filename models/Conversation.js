@@ -12,12 +12,10 @@ const conversationSchema = new mongoose.Schema(
     Caller: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
     Receiver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
   },
   {

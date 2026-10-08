@@ -128,7 +128,6 @@ router.get("/post/:id", authenticate, async (req, res) => {
 router.post("/likes", authenticate, async (req, res) => {
   try {
     const admin = await User.findById(req.userId);
-
     const id = req.body.PostId;
     const post = await Posts.findById(id);
 
@@ -167,6 +166,7 @@ router.post("/likes", authenticate, async (req, res) => {
           Notifications: {
             message: "liked your post.",
             postId: post._id,
+            by: admin._id,
           },
         },
       });
@@ -175,6 +175,7 @@ router.post("/likes", authenticate, async (req, res) => {
         postId: post._id,
         likes: post.Likes,
       });
+
       io.emit("sendNotification", "Notification");
 
       return res.status(200).json({
@@ -207,6 +208,7 @@ router.post("/likes", authenticate, async (req, res) => {
     });
 
     io.emit("sendNotification", "Notification");
+
     return res.status(200).json({
       message: "Post liked",
       isLiked: true,

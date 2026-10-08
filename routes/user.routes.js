@@ -93,30 +93,16 @@ router.get("/user/:Username", authenticate, async (req, res) => {
       });
     }
 
-    // Find existing conversation
-    let conversation = await Conversation.findOne({
-      participants: {
-        $all: [profileUser._id, req.userId],
-      },
-    });
-
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [profileUser._id, req.userId],
-      });
-    }
+    const isFollowing =
+      admin.Following?.some(
+        (followingId) => followingId.toString() === profileUser._id.toString(),
+      ) ?? false;
 
     const userPosts = await Posts.find({
       UserId: profileUser._id,
-    });
+    }).sort({ createdAt: -1 });
 
-    const isFollowing =
-      admin.Following?.some(
-        (followingId) =>
-          followingId.toString() === profileUser._id.toString(),
-      );
-
-    const postresult = userPosts.map((post) => {
+    const UserPosts = userPosts.map((post) => {
       const postObject = post.toObject();
 
       postObject.isLiked =
@@ -127,20 +113,33 @@ router.get("/user/:Username", authenticate, async (req, res) => {
       return postObject;
     });
 
-    return res.status(200).json({
-      user: {
-        ...profileUser.toObject(),
-        Password: undefined,
+    let conversation = await Conversation.findOne({
+      participants: {
+        $all: [req.userId, profileUser._id],
       },
+    });
+
+    if (!conversation) {
+      conversation = await Conversation.create({
+        participants: [req.userId, profileUser._id],
+      });
+    }
+
+    const user = profileUser.toObject();
+
+    delete user.Password;
+
+    return res.status(200).json({
+      user,
       isFollowing,
-      UserPosts: postresult,
+      UserPosts,
       conversationId: conversation._id,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Get profile error:", error);
 
-    return res.status(401).json({
-      message: "Invalid or expired JWT",
+    return res.status(500).json({
+      message: "Internal server error",
     });
   }
 });
@@ -244,7 +243,6 @@ router.get("/searchUsers", authenticate, async (req, res) => {
     }));
 
     return res.status(200).json(isFollowing);
-    
   } catch (err) {
     console.error("Search users error:", err);
 

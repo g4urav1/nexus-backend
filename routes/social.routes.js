@@ -451,19 +451,14 @@ router.post(
 
       const io = req.app.get("io");
 
-      if (conversation.Caller.toString() === adminId.toString()) {
-        io.to(`conversation:${conversationId}`).emit("sendPeer", {
-          peer,
-          participant: "caller",
-        });
-      }
+      const isCaller = conversation.Caller.toString() === adminId.toString();
 
-      else if (conversation.Receiver.toString() === adminId.toString()) {
-        io.to(`conversation:${conversationId}`).emit("sendPeer", {
-          peer,
-          participant: "receiver",
-        });
-      }
+      io.to(`conversation:${conversationId}`).emit("sendPeer", {
+        peer,
+        senderId: adminId.toString(),
+        role: isCaller ? "caller" : "receiver",
+        conversationId,
+      });
 
       return res.status(200).json({
         message: "Peer sent successfully",
