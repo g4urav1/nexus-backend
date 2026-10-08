@@ -8,18 +8,15 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 
-const peers = {};
+const peer = {};
 
 router.post("/connect/peer", authenticate, async (req, res) => {
   const { peerId } = req.body;
   const userId = req.userId;
 
-  const user = await User.findById(userId);
+  peer[userId] = peerId;
 
-  user.peerId = peerId;
-  await user.save();
-
-  console.log(user.peerId);
+  // console.log(peer);
 });
 
 router.post("/follow", authenticate, async (req, res) => {
@@ -297,11 +294,11 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
     await conversation.save();
 
     const callerDetails = await User.findById(conversation.Caller).select(
-      "_id Username Pfp CallStatus peerId",
+      "_id Username Pfp CallStatus ",
     );
 
     const receiverDetails = await User.findById(conversation.Receiver).select(
-      "_id Username Pfp CallStatus peerId",
+      "_id Username Pfp CallStatus ",
     );
 
     const io = req.app.get("io");
@@ -309,15 +306,7 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
     console.log("--------------------------------------------");
     console.log("Caller id: ", callerDetails._id);
     console.log("Rceiver Id: ", receiverDetails._id);
-    console.log(
-      callerDetails._id,
-      ":",
-      callerDetails.peerId,
-      `\n`,
-      receiverDetails._id,
-      ":",
-      receiverDetails.peerId,
-    );
+    console.log(peer);
     console.log("-----------------------------------------------");
 
     io.to(`conversation:${conversationId}`).emit("GetCall", {
@@ -328,7 +317,6 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         Username: callerDetails.Username,
         Pfp: callerDetails.Pfp || "",
         CallStatus: callerDetails.CallStatus,
-        peerId: callerDetails.peerId,
       },
 
       receiver: {
@@ -336,7 +324,6 @@ router.post("/call/:conversationId", authenticate, async (req, res) => {
         Username: receiverDetails.Username,
         Pfp: receiverDetails.Pfp || "",
         CallStatus: receiverDetails.CallStatus,
-        peerId: receiverDetails.peerId,
       },
     });
 
@@ -412,8 +399,8 @@ router.post("/call/:conversationId/status", authenticate, async (req, res) => {
     const { status } = req.body;
 
     const conversation = await Conversation.findById(conversationId)
-      .populate("Caller", "_id Username Pfp CallStatus isCamOn peerId")
-      .populate("Receiver", "_id Username Pfp CallStatus isCamOn peerId");
+      .populate("Caller", "_id Username Pfp CallStatus isCamOn ")
+      .populate("Receiver", "_id Username Pfp CallStatus isCamOn ");
 
     if (!conversation) {
       return res.status(404).json({
@@ -441,5 +428,55 @@ router.post("/call/:conversationId/status", authenticate, async (req, res) => {
     });
   }
 });
+
+router.post(
+  "/call/:conversationId/sendPeer",
+  authenticate,
+  async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const { peer } = req.body;
+      const adminId = req.userId;
+
+      console.log("PEER:", peer);
+      console.log("SENDER:", adminId);
+
+      const conversation = await Conversation.findById(conversationId);
+
+      if (!conversation) {
+        return res.status(404).json({
+          message: "Conversation not found",
+        });
+      }
+
+      const io = req.app.get("io");
+
+      if (conversation.Caller.toString() === adminId.toString()) {
+        io.to(`conversation:${conversationId}`).emit("sendPeer", {
+          peer,
+          participant: "caller",
+        });
+      }
+
+      else if (conversation.Receiver.toString() === adminId.toString()) {
+        io.to(`conversation:${conversationId}`).emit("sendPeer", {
+          peer,
+          participant: "receiver",
+        });
+      }
+
+      return res.status(200).json({
+        message: "Peer sent successfully",
+      });
+    } catch (error) {
+      console.error("Send Peer:", error);
+
+      return res.status(500).json({
+        message: "Failed to send peer",
+        error: error.message,
+      });
+    }
+  },
+);
 
 export default router;

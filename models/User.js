@@ -1,9 +1,7 @@
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
-  peerId: {
-    type: String,
-  },
+
   Email: {
     type: String,
   },
